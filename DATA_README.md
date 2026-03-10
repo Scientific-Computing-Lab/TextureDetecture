@@ -100,7 +100,6 @@ These files are generated artifacts, not raw benchmark inputs.
 
 This repository was extracted from the following source snapshot:
 
-- source repo: `ArchiTexture`
 - source commit: `2da18efafe8542a5b88f9d3a15b77a9daa9f1435`
 
 ### ADE20K provenance
@@ -151,7 +150,7 @@ Preserved export snapshot:
 
 ## Why Some Large Artifacts Are Not Included
 
-This repository does not include the external `/home/galoren/rwtd_runs` tree from the broader ArchiTexture project.
+This repository does not include the external `/home/galoren/rwtd_runs` tree from the broader mixed workspace.
 
 That directory was not repository-resident, is much larger than the Detecture extraction target, and mixes other datasets and experiments that are outside the narrower Detecture boundary.
 

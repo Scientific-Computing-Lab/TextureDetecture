@@ -6,14 +6,14 @@ The requested end state was:
 
 - create a new GitHub repository
 - keep it private
-- separate the `1-100` "how texturized is the image?" work from ArchiTexture
+- separate the `1-100` "how texturized is the image?" work into its own repository
 - rename that project to `Detecture`
 - include the project files and its data
 - add documentation that explains not only usage but also the scientific intent and design process
 
-## Why Detecture Is Separate From ArchiTexture
+## Why Detecture Is Separate
 
-ArchiTexture had become a broader umbrella for:
+The source workspace had become a broader umbrella for:
 
 - texture scoring
 - review-site generation
@@ -27,7 +27,7 @@ The Detecture request narrowed scope to the specific scoring project:
 - the supporting review bundle
 - the exported ADE20K site that presented the scoring project
 
-This repository therefore preserves the scoring project as a standalone artifact rather than keeping it embedded in the broader ArchiTexture context.
+This repository therefore preserves the scoring project as a standalone artifact rather than keeping it embedded in the broader mixed workspace.
 
 ## Extraction Boundary
 
@@ -43,7 +43,7 @@ Excluded from Detecture:
 
 - `.git` history from the source repo
 - `.venv` and machine-local dependency installs
-- external ArchiTexture run caches under `/home/galoren/rwtd_runs`
+- external run caches under `/home/galoren/rwtd_runs`
 - unrelated existing work under `/home/galoren/Detecture/`
 
 ## Main Design Decisions
@@ -89,7 +89,7 @@ Reason:
 
 ### 5. Prefer a feasible GitHub repository over an impossible one
 
-The much larger external ArchiTexture run-cache tree was not imported.
+The much larger external run-cache tree was not imported.
 
 Reason:
 

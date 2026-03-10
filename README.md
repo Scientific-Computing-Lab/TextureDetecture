@@ -1,5 +1,20 @@
 # Detecture
 
+<table>
+  <tr>
+    <td align="center">
+      <strong>Browse the live Detecture website</strong><br/>
+      Open the published ADE20K site or jump straight to the review gallery.<br/><br/>
+      <a href="https://scientific-computing-user.github.io/ade20k-texture-miner-site/">
+        <img alt="Browse Detecture Website" src="https://img.shields.io/badge/Browse-Detecture%20Website-0f3c75?style=for-the-badge" />
+      </a>
+      <a href="https://scientific-computing-user.github.io/rwtd-texture-miner-site/review/">
+        <img alt="Open Review Gallery" src="https://img.shields.io/badge/Open-Review%20Gallery-1f8d57?style=for-the-badge" />
+      </a>
+    </td>
+  </tr>
+</table>
+
 Detecture is a standalone texture-structure scoring project that asks a narrow question:
 
 "How texturized is this image for real-world texture segmentation?"
@@ -12,7 +27,7 @@ It answers that question with a `0-100` score driven primarily by:
 - penalties for object-heavy or ambiguous scenes
 - optional CLIP and VLM correction layers
 
-This private repository was extracted on `2026-03-10` from the broader `ArchiTexture` work so the Detecture scoring project can live as its own code-and-data artifact.
+This private repository was extracted on `2026-03-10` from a broader mixed workspace so the Detecture scoring project can live as its own code-and-data artifact.
 
 ## What This Repository Contains
 
@@ -63,7 +78,7 @@ xdg-open docs/review/index.html
 
 - `SCIENTIFIC_README.md`: problem statement, score definition, pipeline design, evaluation logic, and limitations
 - `DATA_README.md`: included data inventory, provenance, benchmark terms, and reproduction notes
-- `REQUEST_AND_DESIGN.md`: what was requested, how Detecture was separated from ArchiTexture, and the extraction decisions
+- `REQUEST_AND_DESIGN.md`: what was requested, how Detecture was separated into its own repo, and the extraction decisions
 - `RANKING_EXPLANATION.txt`: concise formula-level explanation of the ranking stack
 
 ## Repository Layout
@@ -78,7 +93,7 @@ xdg-open docs/review/index.html
 
 ## Detecture Scope
 
-This repository is intentionally narrower than ArchiTexture.
+This repository is intentionally narrower than the earlier mixed workspace.
 
 Detecture includes:
 
@@ -90,15 +105,14 @@ Detecture includes:
 Detecture does not include:
 
 - `.venv` or machine-local dependency installs
-- the external `/home/galoren/rwtd_runs` cache tree from the broader multi-dataset ArchiTexture effort
+- the external `/home/galoren/rwtd_runs` cache tree from the broader multi-dataset workspace
 - unrelated existing work under `/home/galoren/Detecture/`
 
 That boundary keeps this repository focused on the scoring project itself and makes a private GitHub repo feasible.
 
 ## Provenance
 
-- extraction source repo: `ArchiTexture`
-- source snapshot commit: `2da18efafe8542a5b88f9d3a15b77a9daa9f1435`
+- extraction source snapshot commit only: `2da18efafe8542a5b88f9d3a15b77a9daa9f1435`
 - included ADE20K-only site export snapshot commit: `6d73c2a67ed41a3d455cddcea0ae4ef3a80d975e`
 
 ## Data Notes
