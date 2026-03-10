@@ -8,7 +8,7 @@
       <a href="https://scientific-computing-user.github.io/ade20k-texture-miner-site/">
         <img alt="Browse Detecture Website" src="https://img.shields.io/badge/Browse-Detecture%20Website-0f3c75?style=for-the-badge" />
       </a>
-      <a href="https://scientific-computing-user.github.io/rwtd-texture-miner-site/review/">
+      <a href="https://scientific-computing-user.github.io/rwtd-texture-miner-site/texturesam2_ai_gallery/index.html">
         <img alt="Open Review Gallery" src="https://img.shields.io/badge/Open-Review%20Gallery-1f8d57?style=for-the-badge" />
       </a>
     </td>
