@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>ADE20K Texture Miner: Method Heart</title>
+  <style>
+    :root{
+      --bg:#ecf1f6;
+      --panel:#ffffff;
+      --ink:#13283f;
+      --muted:#566a84;
+      --line:#d6dfe9;
+      --blue:#1f5fa9;
+      --green:#1f8d57;
+      --algobg:#f5f9ff;
+      --algoline:#c6d8ef;
+      --eqbg:#f4f9ff;
+      --eqline:#bdd1eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(140deg,#e8eff6,#f8fbff);
+      color:var(--ink);
+      font-family:"Avenir Next","Helvetica Neue",Arial,sans-serif;
+    }
+    .wrap{max-width:1120px;margin:0 auto;padding:18px}
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:18px;
+      margin-bottom:12px;
+    }
+    h1{margin:0 0 10px 0;font-size:31px;line-height:1.2}
+    h2{margin:8px 0 8px 0;font-size:23px}
+    p{margin:0 0 11px 0;line-height:1.74;color:#1a3554}
+    .nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .btn{
+      display:inline-flex;align-items:center;
+      border:1px solid var(--line);border-radius:9px;
+      background:#fff;color:#284563;text-decoration:none;
+      padding:7px 11px;font-size:14px;
+    }
+    .btn:hover{background:#f3f7fc}
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:8px;
+      margin-top:8px;
+    }
+    .kpi{
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#f9fcff;
+      padding:10px;
+    }
+    .kpi .name{font-size:12px;color:var(--muted);margin-bottom:4px}
+    .kpi .val{font-size:24px;font-weight:700;color:#10355d}
+    .kpi .sub{font-size:12px;color:var(--muted)}
+    .eq{
+      border-left:3px solid var(--eqline);
+      background:var(--eqbg);
+      padding:10px 12px;
+      border-radius:6px;
+      color:#18426a;
+      margin:8px 0 12px 0;
+      overflow:auto;
+    }
+    .algo{
+      border:1px solid var(--algoline);
+      background:var(--algobg);
+      border-radius:10px;
+      margin:10px 0 14px 0;
+      overflow:hidden;
+    }
+    .algo-head{
+      padding:8px 12px;
+      border-bottom:1px solid var(--algoline);
+      background:#edf5ff;
+      font-size:13px;
+      color:#294666;
+      font-weight:700;
+      letter-spacing:0.02em;
+      text-transform:uppercase;
+    }
+    .algo pre{
+      margin:0;
+      padding:12px;
+      color:#173a5f;
+      line-height:1.6;
+      font-size:13px;
+      overflow:auto;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    }
+    .accent{color:var(--blue);font-weight:700}
+    .ok{color:var(--green);font-weight:700}
+    .note{font-size:13px;color:var(--muted)}
+    .math-note{font-size:13px;color:#3d5572;margin-top:-4px;margin-bottom:10px}
+    .stage-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:8px;
+    }
+    .stage-card{
+      border:1px solid var(--line);
+      border-radius:10px;
+      background:#fbfdff;
+      padding:11px;
+    }
+    .stage-card h3{
+      margin:0 0 7px 0;
+      font-size:16px;
+      color:#214669;
+    }
+    .stage-card p{
+      margin:0 0 8px 0;
+      font-size:14px;
+      line-height:1.62;
+      color:#23415f;
+    }
+    .stage-visual{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      margin-top:6px;
+    }
+    .stage-visual figure{
+      margin:0;
+      border:1px solid #d6e1ef;
+      border-radius:8px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .stage-visual img{
+      display:block;
+      width:100%;
+      height:170px;
+      object-fit:cover;
+      background:#eef3f8;
+    }
+    .stage-visual figcaption{
+      padding:6px 7px;
+      font-size:11px;
+      color:#39516d;
+      border-top:1px solid #e3ebf4;
+      background:#f9fcff;
+    }
+    .stage-metrics{
+      margin-top:7px;
+      font-size:12px;
+      color:#405875;
+      line-height:1.55;
+    }
+    .split-two{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      margin-top:6px;
+    }
+    .mini-card{
+      border:1px solid #d6e1ef;
+      border-radius:8px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .mini-card .cap{
+      padding:5px 7px;
+      font-size:11px;
+      color:#39516d;
+      border-top:1px solid #e3ebf4;
+      background:#f9fcff;
+    }
+    .mini-card img{
+      display:block;
+      width:100%;
+      height:160px;
+      object-fit:cover;
+      background:#eef3f8;
+    }
+    .pill{
+      display:inline-block;
+      border:1px solid #c7d8ec;
+      background:#f2f8ff;
+      color:#2b4c71;
+      border-radius:999px;
+      padding:2px 8px;
+      font-size:11px;
+      margin-right:5px;
+      margin-top:5px;
+    }
+    @media (max-width:980px){
+      .stage-grid{grid-template-columns:1fr}
+    }
+    mjx-container{overflow-x:auto;overflow-y:hidden;padding:2px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h1>Method Heart: How the Texture Scorer Works</h1>
+      <p>This page explains the core scoring logic in paper style, now with explicit equations and pseudocode. The key idea is to avoid treating texture suitability as a binary yes-or-no classification and instead estimate it as structured evidence consolidation: proposal fragmentation statistics, region-level boundary coherence, texture occupancy, and semantic counter-evidence are combined into a conservative score used for ranking. The system is therefore not trying to recognize object identity; it is estimating whether an image naturally supports RWTD-like texture partitioning.</p>
+      <div class="nav">
+        <a class="btn" href="./">Method and Evidence</a>
+        <a class="btn" href="../review/">Open ADE20K Gallery</a>
+        <a class="btn" href="../">Home</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>What Problem the Scorer Solves</h2>
+      <p>Many natural images are visually rich but not texture-segmentation-friendly. A highly semantic scene can look complicated while still being a weak candidate for texture-transition analysis, and a visually simple scene can contain two or three strong material regimes that are ideal for texture segmentation. The scorer resolves this mismatch by ranking images according to texture-transition structure rather than semantic saliency, which is why the pipeline separates positive texture evidence from semantic counter-evidence before final ranking.</p>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <section class="panel">
+      <h2>End-to-End Staged Pipeline (Visual Walkthrough)</h2>
+      <p>Instead of describing the stages abstractly, this section shows one representative example per stage from the live manifest. The goal is to make the decision flow concrete: Stage A checks whether proposal structure is texture-friendly, geometry enrichment turns that structure into region-level texture evidence, Stage B tests semantic alignment using contrastive retrieval, and Stage D applies a conservative rubric that can veto semantically dominant false positives.</p>
+      <div class="stage-grid">
+        <article class="stage-card">
+          <h3>Stage A: Proposal Statistics Gate</h3>
+          <p>This stage asks whether the proposal distribution looks like texture fragmentation rather than a single dominant object. It summarizes proposal count, dominance, small-region prevalence, and entropy into a single prior score.</p>
+          <div id="stageA_slot"></div>
+        </article>
+        <article class="stage-card">
+          <h3>Geometry Enrichment</h3>
+          <p>This stage transforms region structure into texture evidence: boundary coherence, texture occupancy, object occupancy, and large-region organization. The overlay view is where boundary quality becomes visually interpretable.</p>
+          <div id="stageGeom_slot"></div>
+        </article>
+        <article class="stage-card">
+          <h3>Stage B: CLIP Retrieval Filter</h3>
+          <p>This stage keeps images whose text-image contrast supports texture transition cues while suppressing object-centric semantics. Showing both a kept and filtered sample clarifies how the retrieval contrast behaves around the decision boundary.</p>
+          <div id="stageB_slot"></div>
+        </article>
+        <article class="stage-card">
+          <h3>Stage D: Rubric Audit (Optional)</h3>
+          <p>This stage is a safety layer: it can preserve strong texture-dominant scenes, but it can also veto semantically problematic scenes even when upstream scores are high. The paired examples below show this conservative correction in action.</p>
+          <div id="stageD_slot"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Global Objective and Fusion</h2>
+      <p>For each image \(x_i\), we compute a final score \(s_i \in [0,100]\). The fusion is intentionally geometry-dominant: retrieval and rubric signals are corrective, while penalties enforce conservative behavior when evidence is inconsistent.</p>
+      <div class="eq">
+        \[
+        s_i = \Pi_{[0,100]}\!\left( s_i^{\text{base}} + \lambda_B\,\Delta_i^B + \lambda_D\,\Delta_i^D - \rho_i \right),
+        \]
+      </div>
+      <p class="math-note">\(\Pi_{[0,100]}\) denotes clipping to \([0,100]\); \(\rho_i\) is a penalty term from explicit risk flags and vetoes.</p>
+      <p>This form is the core design choice: when corrective terms are too large, the model drifts toward semantics; when they are absent, the ranking is under-calibrated on hard edge cases. The selected blend keeps interpretation stable while still allowing recovery of valid but rare texture scenes.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Stage A: Fragmentation Prior (Proposal Statistics)</h2>
+      <p>Let \(\{a_{ij}\}_{j=1}^{N_i}\) be proposal areas for image \(i\), and \(A_i\) the image area. We define normalized proposal ratios \(r_{ij}=a_{ij}/A_i\), then summarize proposal fragmentation with count, dominance, small-region prevalence, and entropy. This yields a weak but robust prior that the image contains sufficient texture micro-structure.</p>
+      <div class="eq">
+        \[
+        \ell_i = \max_j r_{ij},\quad
+        m_i = \operatorname{median}_j(r_{ij}),\quad
+        q_i = \frac{1}{N_i}\sum_j \mathbf{1}[r_{ij}<\tau_s],\quad
+        h_i = -\sum_j p_{ij}\log_2 p_{ij},\ \ p_{ij}=\frac{r_{ij}}{\sum_k r_{ik}}.
+        \]
+      </div>
+      <div class="eq">
+        \[
+        s_i^A = 100\Big(0.28\,u_N + 0.24\,u_\ell + 0.18\,u_m + 0.18\,u_q + 0.12\,u_h\Big),
+        \]
+      </div>
+      <p class="math-note">where \(u_N,u_\ell,u_m,u_q,u_h\in[0,1]\) are normalized versions of count, dominance, median, small-mask rate, and entropy using fixed saturation ranges.</p>
+      <div class="eq">
+        \[
+        g_i^A = \mathbf{1}\!
+        \big[N_i\!\ge\!N_{\min}\ \land\ \ell_i\!\le\!\ell_{\max}\ \land\ m_i\!\le\!m_{\max}\ \land\ q_i\!\ge\!q_{\min}\ \land\ h_i\!\ge\!h_{\min}\big].
+        \]
+      </div>
+      <p>In practice this stage is conservative and not expected to finalize ranking quality. Its job is to suppress obvious non-candidates while preserving uncertain cases for stronger downstream evidence, which is why unknown parse cases can continue rather than being deterministically dropped.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Geometry Backbone: Boundary-Coherent Texture Evidence</h2>
+      <p>The geometry backbone provides the principal discriminative power by promoting boundary-coherent texture decomposition and penalizing semantic/object dominance or ambiguous clutter. Let \(b_i\) be boundary coherence score, \(t_i\) texture occupancy, \(o_i\) object fraction, \(a_i\) ambiguity fraction, and \(c_i\) clutter term. Let \(r_i\) and \(v_i\) denote region-count and strong-boundary bonuses derived from coarse region structure.</p>
+      <div class="eq">
+        \[
+        s_i^{\text{base}} = \Pi_{[0,100]}\!\left(0.20\,s_i^A + 0.60\,b_i + \beta_t\,\phi(t_i) + \beta_r\,r_i + \beta_v\,v_i - \beta_o\,o_i - \beta_a\,a_i - \beta_c\,c_i\right).
+        \]
+      </div>
+      <p>Conceptually, this base score encodes the actual target structure of texture segmentation: two-to-four coherent material regions with meaningful boundaries. Because it is geometry-first rather than class-first, it remains aligned with non-semantic texture tasks and does not rely on object labels to appear strong.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Stage B: Retrieval Correction with Diversity-Preserving Keep Rule</h2>
+      <p>Stage B computes retrieval evidence from positive and negative textual anchors. If \(e_i\) is the image embedding, \(\{t_q^+\}\) positive prompt embeddings, and \(\{t_q^-\}\) negative prompt embeddings, the retrieval contrast is:</p>
+      <div class="eq">
+        \[
+        c_i = \max_q\,\operatorname{sim}(e_i,t_q^+) - \alpha\,\max_q\,\operatorname{sim}(e_i,t_q^-).
+        \]
+      </div>
+      <p>Instead of a single hard threshold, the keep policy uses a threshold-or-top-k union to preserve rare but valid positives:</p>
+      <div class="eq">
+        \[
+        g_i^B = \mathbf{1}\left[c_i\ge\theta\ \lor\ i\in\bigcup_q\operatorname{TopK}_q\right].
+        \]
+      </div>
+      <p>This keeps recall on minority texture modes without allowing retrieval to dominate the global ranking, since Stage B remains a correction layer on top of the geometry backbone.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Stage D: Rubric Correction, Semantic Veto, and Overlay Audit</h2>
+      <p>Stage D evaluates only the shortlisted subset and returns a rubric score \(r_i\), a categorical decision \(d_i\in\{\text{match},\text{borderline},\text{not\_match}\}\), and a set of flags \(F_i\). The correction term includes a small continuous adjustment and discrete decision offsets, while hard veto logic can cap scores when semantic dominance or boundary-audit failure is detected.</p>
+      <div class="eq">
+        \[
+        \Delta_i^D = \eta_r\,\frac{r_i-50}{50} + \eta_m\,\mathbf{1}[d_i=\text{match}] - \eta_n\,\mathbf{1}[d_i=\text{not\_match}],
+        \]
+      </div>
+      <div class="eq">
+        \[
+        \rho_i = \sum_{f\in F_i}\omega_f\,\mathbf{1}[f\in\mathcal{P}] + \rho_i^{\text{veto}},
+        \]
+      </div>
+      <p class="math-note">\(\mathcal{P}\) is the penalized flag set (e.g., object-centric, weak boundary, synthetic/collage cues), and \(\rho_i^{\text{veto}}\) is an additional downgrade under strict safety rules.</p>
+      <p>This stage should be read as de-risking rather than primary ranking. It limits semantic leakage and unsafe boundary interpretations while preserving the geometry-first ordering.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Pseudocode: Single-Image Scoring</h2>
+      <p>The following pseudocode is the operational scoring path for one image, written to mirror the implemented behavior while staying model-level rather than code-level.</p>
+      <div class="algo">
+        <div class="algo-head">Algorithm 1: ScoreOneImage</div>
+        <pre>Input: image x_i, proposal set P_i, configuration Theta
+Output: final score s_i and diagnostics D_i
+
+1:  Compute Stage-A statistics from P_i -> (N_i, l_i, m_i, q_i, h_i)
+2:  Compute s_i^A and gate g_i^A
+3:  Extract geometry terms -> (b_i, t_i, o_i, a_i, c_i, r_i, v_i)
+4:  Compute base score s_i^base
+5:  If Stage-B enabled and (g_i^A or unknown-allowed):
+6:      compute retrieval contrast c_i and gate g_i^B
+7:      map c_i to normalized correction Delta_i^B
+8:  Else:
+9:      set Delta_i^B = 0 and g_i^B = 0
+10: If Stage-D enabled and g_i^B and x_i in shortlist:
+11:     run rubric evaluator -> (r_i, d_i, F_i)
+12:     compute Delta_i^D and penalties rho_i (including veto rules)
+13: Else:
+14:     set Delta_i^D = 0 and rho_i = 0
+15: Fuse terms: s_i = clip(s_i^base + lambda_B Delta_i^B + lambda_D Delta_i^D - rho_i, 0, 100)
+16: Emit s_i together with all intermediate diagnostics D_i</pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Pseudocode: Dataset Ranking and Review Subset</h2>
+      <p>At dataset scale, the miner first scores all candidates, then applies a deterministic review-subset policy so the hosted gallery remains tractable while still representing selected, borderline, and rejected regimes.</p>
+      <div class="algo">
+        <div class="algo-head">Algorithm 2: RankDatasetAndBuildReviewSet</div>
+        <pre>Input: dataset X = {x_i}_{i=1}^M, review limit L
+Output: ranked manifest R and hosted review subset H
+
+1:  For each image x_i in X:
+2:      (s_i, D_i) <- ScoreOneImage(x_i)
+3:  Sort all images by descending s_i to get ranked manifest R
+4:  Assign status labels from score intervals (selected/borderline/rejected)
+5:  If |R| <= L: return R as hosted set H
+6:  Else build H with deterministic class-balanced allocation:
+7:      allocate quotas across selected/borderline/rejected
+8:      keep high-score hard negatives plus diverse low-score negatives
+9:      cap to L and preserve deterministic ordering by score
+10: Return full manifest R and hosted subset H</pre>
+      </div>
+      <p class="note">This separation between full ranking and hosted subset is the reason the site can stay lightweight without changing the underlying scoring behavior.</p>
+    </section>
+
+    <section class="panel">
+      <h2>From Continuous Score to Practical Decisions</h2>
+      <p>The score remains continuous so users can choose operating points by task. The hosted review uses fixed status intervals for rapid browsing, while mining workflows can use a broader operational threshold to favor recall. These are not conflicting definitions; they are two operating points on the same calibrated ranking axis.</p>
+      <p><span class="ok">Interpretability claim:</span> every final score is tied to separable terms and explicit gates, so large changes can be traced to concrete evidence shifts rather than opaque model behavior.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Reproducibility Note</h2>
+      <p>The implementation uses fixed configuration defaults and deterministic subset construction for the live 1500-image browser set, so the ranking profile and status composition are reproducible from the same manifest snapshot. This site is intentionally separated from ARCHITEXTURE outputs to keep conclusions independent and auditable.</p>
+    </section>
+  </div>
+
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(','\\)']],
+        displayMath: [['\\[','\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <script src="../review/data.js?v=ade20k_v1"></script>
+  <script>
+    const rows = Array.isArray(window.REVIEW_DATA) ? window.REVIEW_DATA : [];
+    const asNum = (v, d=0) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    };
+    const esc = (s) => String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+    const fmt = (v, d=2) => Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "n/a";
+    const asset = (p) => {
+      const s = String(p || "").trim();
+      if (!s) return "";
+      if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("/")) return s;
+      return "../review/" + s.replace(/^\.?\//, "");
+    };
+    const bust = (p) => {
+      const u = asset(p);
+      if (!u) return "";
+      return u + (u.includes("?") ? "&" : "?") + "v=ade20k_v1";
+    };
+
+    function corr(xs, ys){
+      const n = Math.min(xs.length, ys.length);
+      if (n < 3) return NaN;
+      let sx = 0, sy = 0;
+      for (let i = 0; i < n; i++){ sx += xs[i]; sy += ys[i]; }
+      const mx = sx / n, my = sy / n;
+      let num = 0, dx = 0, dy = 0;
+      for (let i = 0; i < n; i++){
+        const ax = xs[i] - mx;
+        const ay = ys[i] - my;
+        num += ax * ay;
+        dx += ax * ax;
+        dy += ay * ay;
+      }
+      const den = Math.sqrt(dx * dy);
+      if (!Number.isFinite(den) || den <= 1e-12) return NaN;
+      return num / den;
+    }
+
+    function pickTop(filterFn, scoreFn){
+      const cand = rows.filter((r) => {
+        if (!filterFn(r)) return false;
+        return Boolean(r && (r.thumb || r.image_path));
+      });
+      cand.sort((a,b) => asNum(scoreFn(b), -1e9) - asNum(scoreFn(a), -1e9));
+      return cand[0] || null;
+    }
+
+    function imgOrThumb(r){
+      return r?.image_path || r?.thumb || "";
+    }
+
+    function renderStageA(){
+      const ex = pickTop(
+        (r) => r.stageA_pass === true,
+        (r) => asNum(r.stageA_rwtd_score, 0) + 0.03 * asNum(r.stageA_n_masks, 0)
+      );
+      const slot = document.getElementById("stageA_slot");
+      if (!slot || !ex){
+        if (slot) slot.innerHTML = "<p class='note'>No representative sample available.</p>";
+        return;
+      }
+      slot.innerHTML = `
+        <div class="stage-visual">
+          <figure>
+            <img src="${bust(imgOrThumb(ex))}" alt="Stage A original image"/>
+            <figcaption>Original image</figcaption>
+          </figure>
+          <figure>
+            <img src="${bust(ex.mask_rel)}" alt="Stage A mask visualization"/>
+            <figcaption>Proposal/mask visualization</figcaption>
+          </figure>
+        </div>
+        <div class="stage-metrics">
+          <span class="pill">${esc(ex.image_id)}</span>
+          <span class="pill">stageA_pass: ${ex.stageA_pass ? "true" : "false"}</span><br/>
+          stageA_rwtd_score: <b>${fmt(ex.stageA_rwtd_score, 2)}</b>,
+          n_masks: <b>${fmt(ex.stageA_n_masks, 0)}</b>,
+          largest_ratio: <b>${fmt(ex.stageA_largest_ratio, 3)}</b>,
+          small_frac: <b>${fmt(ex.stageA_small_frac, 3)}</b>.
+        </div>
+      `;
+    }
+
+    function renderStageGeom(){
+      const ex = pickTop(
+        (r) => asNum(r.geom_texture_boundary_score, NaN) > 0,
+        (r) => asNum(r.geom_texture_boundary_score, 0) - 80 * asNum(r.geom_object_fraction, 0)
+      );
+      const slot = document.getElementById("stageGeom_slot");
+      if (!slot || !ex){
+        if (slot) slot.innerHTML = "<p class='note'>No representative sample available.</p>";
+        return;
+      }
+      slot.innerHTML = `
+        <div class="stage-visual">
+          <figure>
+            <img src="${bust(imgOrThumb(ex))}" alt="Geometry stage original image"/>
+            <figcaption>Original image</figcaption>
+          </figure>
+          <figure>
+            <img src="${bust(ex.overlay_rel)}" alt="Geometry boundary overlay"/>
+            <figcaption>Boundary/region overlay</figcaption>
+          </figure>
+        </div>
+        <div class="stage-metrics">
+          <span class="pill">${esc(ex.image_id)}</span><br/>
+          boundary_score: <b>${fmt(ex.geom_texture_boundary_score, 2)}</b>,
+          texture_fraction: <b>${fmt(ex.geom_texture_fraction, 3)}</b>,
+          object_fraction: <b>${fmt(ex.geom_object_fraction, 4)}</b>,
+          large_regions: <b>${fmt(ex.geom_num_large_texture_regions, 0)}</b>,
+          strong_boundaries: <b>${fmt(ex.geom_num_strong_boundaries, 0)}</b>.
+        </div>
+      `;
+    }
+
+    function renderStageB(){
+      const keep = pickTop(
+        (r) => r.stageB_pass === true,
+        (r) => asNum(r.stageB_clip_score, -1e9)
+      );
+      const filt = pickTop(
+        (r) => r.stageB_pass === false && Number.isFinite(asNum(r.stageB_clip_score, NaN)),
+        (r) => asNum(r.stageB_clip_score, -1e9)
+      );
+      const slot = document.getElementById("stageB_slot");
+      if (!slot || (!keep && !filt)){
+        if (slot) slot.innerHTML = "<p class='note'>No representative sample available.</p>";
+        return;
+      }
+      slot.innerHTML = `
+        <div class="split-two">
+          ${keep ? `
+          <div class="mini-card">
+            <img src="${bust(imgOrThumb(keep))}" alt="Stage B kept example"/>
+            <div class="cap">Kept by Stage B<br/>${esc(keep.image_id)}<br/>clip_score=${fmt(keep.stageB_clip_score, 4)}, stageB_pass=true</div>
+          </div>` : ""}
+          ${filt ? `
+          <div class="mini-card">
+            <img src="${bust(imgOrThumb(filt))}" alt="Stage B filtered example"/>
+            <div class="cap">Filtered by Stage B<br/>${esc(filt.image_id)}<br/>clip_score=${fmt(filt.stageB_clip_score, 4)}, stageB_pass=false</div>
+          </div>` : ""}
+        </div>
+      `;
+    }
+
+    function renderStageD(){
+      const match = pickTop(
+        (r) => r.stageD_decision === "match",
+        (r) => asNum(r.stageD_score_0_100, -1e9)
+      );
+      const reject = pickTop(
+        (r) => r.stageD_decision === "not_match",
+        (r) => asNum(r.final_score, -1e9)
+      );
+      const slot = document.getElementById("stageD_slot");
+      if (!slot || (!match && !reject)){
+        if (slot) slot.innerHTML = "<p class='note'>No representative sample available.</p>";
+        return;
+      }
+      slot.innerHTML = `
+        <div class="split-two">
+          ${match ? `
+          <div class="mini-card">
+            <img src="${bust(match.overlay_rel || imgOrThumb(match))}" alt="Stage D match example"/>
+            <div class="cap">Rubric match<br/>${esc(match.image_id)}<br/>stageD_score=${fmt(match.stageD_score_0_100, 0)}, decision=match</div>
+          </div>` : ""}
+          ${reject ? `
+          <div class="mini-card">
+            <img src="${bust(reject.overlay_rel || imgOrThumb(reject))}" alt="Stage D not-match example"/>
+            <div class="cap">Rubric veto / not_match<br/>${esc(reject.image_id)}<br/>stageD_score=${fmt(reject.stageD_score_0_100, 0)}, decision=not_match</div>
+          </div>` : ""}
+        </div>
+      `;
+    }
+
+    const bothScoreTex = [];
+    const bothScoreObj = [];
+    for (let i = 0; i < rows.length; i++){
+      const s = asNum(rows[i].final_score, NaN);
+      const t = asNum(rows[i].geom_texture_fraction, NaN);
+      const o = asNum(rows[i].geom_object_fraction, NaN);
+      if (Number.isFinite(s) && Number.isFinite(t)) bothScoreTex.push([s, t]);
+      if (Number.isFinite(s) && Number.isFinite(o)) bothScoreObj.push([s, o]);
+    }
+
+    const scoreTexCorr = corr(bothScoreTex.map((p) => p[0]), bothScoreTex.map((p) => p[1]));
+    const scoreObjCorr = corr(bothScoreObj.map((p) => p[0]), bothScoreObj.map((p) => p[1]));
+
+    const selected = rows.filter((r) => asNum(r.final_score, 0) >= 80).length;
+    const borderline = rows.filter((r) => {
+      const s = asNum(r.final_score, 0);
+      return s >= 70 && s < 80;
+    }).length;
+    const rejected = rows.length - selected - borderline;
+
+    const kpis = [
+      {name: "Rows in live manifest", val: rows.length, sub: "Hosted review subset"},
+      {name: "Selected / borderline / rejected", val: `${selected} / ${borderline} / ${rejected}`, sub: "Status from final score intervals"},
+      {name: "Corr(score, texture fraction)", val: Number.isFinite(scoreTexCorr) ? scoreTexCorr.toFixed(3) : "n/a", sub: "Positive alignment"},
+      {name: "Corr(score, object fraction)", val: Number.isFinite(scoreObjCorr) ? scoreObjCorr.toFixed(3) : "n/a", sub: "Negative alignment"},
+    ];
+
+    document.getElementById("kpis").innerHTML = kpis.map((k) => `
+      <div class="kpi">
+        <div class="name">${k.name}</div>
+        <div class="val">${k.val}</div>
+        <div class="sub">${k.sub}</div>
+      </div>
+    `).join("");
+
+    renderStageA();
+    renderStageGeom();
+    renderStageB();
+    renderStageD();
+  </script>
+</body>
+</html>

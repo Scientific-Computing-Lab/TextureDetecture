@@ -1,0 +1,13 @@
+{
+  "source_review": "/home/galoren/rwtd_miner_github_repo/docs/review",
+  "out_review": "/home/galoren/ade20k-texture-miner-site/docs/review",
+  "dataset_filter": "ade20k",
+  "n_output": 1500,
+  "copied": {
+    "original": 1500,
+    "thumb": 1500,
+    "mask": 1500,
+    "overlay": 1500,
+    "missing": 0
+  }
+}

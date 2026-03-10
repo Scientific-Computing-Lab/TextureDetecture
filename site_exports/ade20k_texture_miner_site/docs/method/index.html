@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>ADE20K Texture Miner: Method and Ranking Evidence</title>
+  <style>
+    :root{
+      --bg:#eef2f6;
+      --panel:#ffffff;
+      --ink:#14263d;
+      --muted:#5e6d82;
+      --line:#d6dee7;
+      --blue:#1f77b4;
+      --green:#2ca02c;
+      --orange:#ff7f0e;
+      --red:#d62728;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(135deg,#e8eef4,#f7fbff);
+      color:var(--ink);
+      font-family:"Avenir Next","Helvetica Neue",Arial,sans-serif;
+    }
+    .wrap{max-width:1260px;margin:0 auto;padding:18px}
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:16px;
+      margin-bottom:12px;
+    }
+    h1{margin:0 0 10px 0;font-size:30px;line-height:1.2}
+    h2{margin:8px 0 8px 0;font-size:22px}
+    p{margin:0 0 10px 0;line-height:1.6;color:#1d3552}
+    .nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .btn{
+      display:inline-flex;align-items:center;
+      border:1px solid var(--line);border-radius:9px;
+      background:#fff;color:#284563;text-decoration:none;
+      padding:7px 11px;font-size:14px;
+    }
+    .btn:hover{background:#f3f7fc}
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+    .kpi{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px;
+      background:#f9fcff;
+    }
+    .kpi .name{font-size:12px;color:var(--muted);margin-bottom:4px}
+    .kpi .val{font-size:22px;font-weight:700;color:#11345c}
+    .kpi .sub{font-size:12px;color:var(--muted)}
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    .chart{
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px;
+      background:#fff;
+    }
+    .chart h3{margin:0 0 8px 0;font-size:15px}
+    .chart p{margin:0 0 8px 0;font-size:12px;color:var(--muted)}
+    svg{width:100%;height:auto;display:block;background:#fff}
+    .legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#2a3f5e}
+    .legend .dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:5px}
+    .rank-explorer{
+      display:grid;
+      grid-template-columns:260px 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    .rank-thumb{
+      width:100%;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:#f4f8fb;
+      object-fit:cover;
+      aspect-ratio:1.35/1;
+    }
+    .rank-meta p{margin-bottom:6px}
+    .rank-meta b{display:inline-block;min-width:172px;color:#4f6178}
+    input[type="range"]{width:100%}
+    .strip{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+      gap:8px;
+      margin-top:8px;
+    }
+    .tile{
+      border:1px solid var(--line);
+      border-radius:10px;
+      overflow:hidden;
+      background:#fff;
+    }
+    .tile img{display:block;width:100%;height:106px;object-fit:cover;background:#edf3f8}
+    .tile .tx{padding:6px 7px;font-size:11px;color:#27405f}
+    .tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+    table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+    th,td{padding:7px 8px;border-bottom:1px solid #e7edf4;text-align:left;white-space:nowrap}
+    th{background:#f7fbff;color:#284563;position:sticky;top:0}
+    @media (max-width:980px){
+      .grid{grid-template-columns:1fr}
+      .rank-explorer{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h1>ADE20K Texture Miner: Research Idea, Design, and Ranking Evidence</h1>
+      <p>The core research idea behind this miner was to treat texture-rich scene discovery as a ranking problem rather than a binary classifier from the start. The practical question was whether a large natural-image corpus like ADE20K can be ordered by a texture-awareness signal that is meaningful for downstream texture research, without hand-labeling a new dataset. Instead of asking a model for object semantics first, the miner asks for region structure, boundary behavior, and texture occupancy signals, then fuses them into a final ranking score intended to push highly textured images upward and semantically dominant but weak-texture scenes downward.</p>
+      <p>The research question was explicit: can an automatically computed score preserve a useful monotonic order of texture richness at scale? The design therefore separated evidence collection and decision logic. First, the pipeline extracted region proposals and measured structural statistics that are expected in textured scenes: broader texture occupancy, stronger internal boundary structure, and multiple coherent texture regions. Second, it integrated semantic safeguards to avoid promoting object-centric images that can look visually busy but are not texture-rich in the sense needed for texture segmentation work. Third, it fused the evidence into one final score on a 0-100 scale and kept all component metrics for auditing so ranking behavior could be inspected instead of treated as a black box.</p>
+      <p>In practical terms, the solution was implemented as a staged miner with explicit intermediate signals and a final sortable manifest. The output is not only a top list; it is a full-ranked set with per-image component scores, status labels, masks, overlays, and original thumbnails. That design choice matters because it allows you to validate the ranking logic by checking whether high-score images consistently exhibit stronger texture-centric geometry than low-score images. The sections below present that validation directly from the 1,500 ADE20K entries currently hosted in this standalone site.</p>
+      <div class="nav">
+        <a class="btn" href="../">Home</a>
+        <a class="btn" href="../review/">Open ADE20K Gallery</a>
+        <a class="btn" href="./technical.html">Method Heart</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ranking Summary</h2>
+      <p>These statistics are computed from the live ADE20K review manifest. The top-vs-bottom comparison uses the highest and lowest 10% by final rank score.</p>
+      <p id="cutoffNarrative" style="margin:0 0 8px 0;font-size:13px;color:#4f6278"></p>
+      <div id="kpis" class="kpis"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Evidence That Ranking Tracks Texture Richness</h2>
+      <div class="grid">
+        <div class="chart">
+          <h3>Decile Trend Across Rank</h3>
+          <p>Decile 1 is highest-ranked. Lines are normalized per metric to expose trend shape, not absolute units.</p>
+          <svg id="decileChart" viewBox="0 0 560 260" aria-label="Decile trend chart"></svg>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--blue)"></i>Texture fraction</span>
+            <span><i class="dot" style="background:var(--green)"></i>Boundary score</span>
+            <span><i class="dot" style="background:var(--orange)"></i>Inverse object fraction</span>
+            <span><i class="dot" style="background:var(--red)"></i>Final score</span>
+          </div>
+        </div>
+        <div class="chart">
+          <h3>Scatter: Final Score vs Texture Fraction</h3>
+          <p>Each point is one image. Regression line should rise if ranking aligns with texture occupancy.</p>
+          <svg id="scatterTexture" viewBox="0 0 560 260" aria-label="Score vs texture fraction"></svg>
+        </div>
+        <div class="chart">
+          <h3>Scatter: Final Score vs Object Fraction</h3>
+          <p>A texture-aware rank should suppress heavy object-dominant scenes, producing a negative slope.</p>
+          <svg id="scatterObject" viewBox="0 0 560 260" aria-label="Score vs object fraction"></svg>
+        </div>
+        <div class="chart">
+          <h3>Top 10% vs Bottom 10%</h3>
+          <p>Mean metric comparison between top-ranked and bottom-ranked subsets.</p>
+          <svg id="topBottomChart" viewBox="0 0 560 260" aria-label="Top bottom comparison"></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Rank Explorer</h2>
+      <p>Move through the global ranking and inspect the image plus its score decomposition.</p>
+      <div class="rank-explorer">
+        <img id="rankImage" class="rank-thumb" alt="Ranked image preview" />
+        <div>
+          <label for="rankSlider" style="font-size:13px;color:#4d6079;">Rank position: <span id="rankPos">1</span> / <span id="rankTotal">0</span></label>
+          <input type="range" id="rankSlider" min="1" max="1" value="1" />
+          <div class="rank-meta" id="rankMeta"></div>
+          <div class="nav">
+            <a id="openOriginal" class="btn" href="#" target="_blank" rel="noreferrer">Open Original</a>
+            <a id="openOverlay" class="btn" href="#" target="_blank" rel="noreferrer">Open Overlay</a>
+            <a class="btn" href="../review/">Open Full Gallery</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Visual Rank Extremes</h2>
+      <p>Top examples should visually present stronger texture transitions and texture occupancy, while bottom examples should show weaker texture evidence or stronger object dominance.</p>
+      <h3 style="margin:8px 0 4px 0">Top 12</h3>
+      <div id="topStrip" class="strip"></div>
+      <h3 style="margin:12px 0 4px 0">Bottom 12</h3>
+      <div id="bottomStrip" class="strip"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Top-50 Ranked Table</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Image ID</th>
+              <th>Final Score</th>
+              <th>Texture Fraction</th>
+              <th>Object Fraction</th>
+              <th>Boundary Score</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="rankTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="../review/data.js?v=ade20k_v1"></script>
+  <script>
+    function num(v, d = NaN){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : d;
+    }
+
+    function mean(arr, fn){
+      let s = 0;
+      let c = 0;
+      for (const it of arr){
+        const v = fn(it);
+        if (Number.isFinite(v)){ s += v; c += 1; }
+      }
+      return c ? s / c : NaN;
+    }
+
+    function pearson(xs, ys){
+      const p = [];
+      for (let i = 0; i < xs.length; i += 1){
+        if (Number.isFinite(xs[i]) && Number.isFinite(ys[i])) p.push([xs[i], ys[i]]);
+      }
+      if (p.length < 3) return NaN;
+      const mx = p.reduce((a, b) => a + b[0], 0) / p.length;
+      const my = p.reduce((a, b) => a + b[1], 0) / p.length;
+      let nume = 0;
+      let denx = 0;
+      let deny = 0;
+      for (const [x, y] of p){
+        const dx = x - mx;
+        const dy = y - my;
+        nume += dx * dy;
+        denx += dx * dx;
+        deny += dy * dy;
+      }
+      if (denx <= 0 || deny <= 0) return NaN;
+      return nume / Math.sqrt(denx * deny);
+    }
+
+    function ranks(vals){
+      const idx = vals.map((v, i) => ({v, i})).filter((x) => Number.isFinite(x.v));
+      idx.sort((a, b) => a.v - b.v);
+      const out = new Array(vals.length).fill(NaN);
+      let i = 0;
+      while (i < idx.length){
+        let j = i;
+        while (j + 1 < idx.length && idx[j + 1].v === idx[i].v) j += 1;
+        const r = (i + j) / 2 + 1;
+        for (let k = i; k <= j; k += 1) out[idx[k].i] = r;
+        i = j + 1;
+      }
+      return out;
+    }
+
+    function spearman(xs, ys){
+      return pearson(ranks(xs), ranks(ys));
+    }
+
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+    function svgEl(name, attrs){
+      const e = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, String(v));
+      return e;
+    }
+
+    function clearSvg(svg){
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+    }
+
+    function drawAxes(svg, w, h, m){
+      svg.appendChild(svgEl("line", {x1:m.l, y1:h - m.b, x2:w - m.r, y2:h - m.b, stroke:"#7c8da3", "stroke-width":"1"}));
+      svg.appendChild(svgEl("line", {x1:m.l, y1:m.t, x2:m.l, y2:h - m.b, stroke:"#7c8da3", "stroke-width":"1"}));
+    }
+
+    function drawDecileChart(svg, deciles){
+      clearSvg(svg);
+      const w = 560;
+      const h = 260;
+      const m = {l:46, r:14, t:16, b:30};
+      const pw = w - m.l - m.r;
+      const ph = h - m.t - m.b;
+      drawAxes(svg, w, h, m);
+
+      const series = [
+        {name:"texture", color:"#1f77b4", vals:deciles.map((d) => d.textureFraction)},
+        {name:"boundary", color:"#2ca02c", vals:deciles.map((d) => d.boundaryScore)},
+        {name:"invObj", color:"#ff7f0e", vals:deciles.map((d) => 1 - d.objectFraction)},
+        {name:"final", color:"#d62728", vals:deciles.map((d) => d.finalScore)}
+      ];
+
+      for (let t = 0; t < 10; t += 1){
+        const x = m.l + (t / 9) * pw;
+        svg.appendChild(svgEl("line", {x1:x, y1:h - m.b, x2:x, y2:h - m.b + 4, stroke:"#7c8da3", "stroke-width":"1"}));
+        const lbl = svgEl("text", {x:x, y:h - m.b + 16, "font-size":"10", "text-anchor":"middle", fill:"#5d6f84"});
+        lbl.textContent = "D" + (t + 1);
+        svg.appendChild(lbl);
+      }
+
+      for (const s of series){
+        const vmin = Math.min(...s.vals);
+        const vmax = Math.max(...s.vals);
+        const path = [];
+        s.vals.forEach((v, i) => {
+          const nv = vmax > vmin ? (v - vmin) / (vmax - vmin) : 0.5;
+          const x = m.l + (i / 9) * pw;
+          const y = m.t + (1 - clamp01(nv)) * ph;
+          path.push((i === 0 ? "M" : "L") + x.toFixed(2) + " " + y.toFixed(2));
+          svg.appendChild(svgEl("circle", {cx:x, cy:y, r:2.5, fill:s.color}));
+        });
+        svg.appendChild(svgEl("path", {d:path.join(" "), fill:"none", stroke:s.color, "stroke-width":"2"}));
+      }
+
+      const yTop = svgEl("text", {x:m.l - 6, y:m.t + 4, "font-size":"10", "text-anchor":"end", fill:"#5d6f84"});
+      yTop.textContent = "high (normalized)";
+      const yBot = svgEl("text", {x:m.l - 6, y:h - m.b, "font-size":"10", "text-anchor":"end", fill:"#5d6f84"});
+      yBot.textContent = "low";
+      svg.appendChild(yTop);
+      svg.appendChild(yBot);
+    }
+
+    function linearFit(xs, ys){
+      const p = [];
+      for (let i = 0; i < xs.length; i += 1){
+        if (Number.isFinite(xs[i]) && Number.isFinite(ys[i])) p.push([xs[i], ys[i]]);
+      }
+      if (p.length < 2) return {a:0, b:0};
+      const mx = p.reduce((a, b) => a + b[0], 0) / p.length;
+      const my = p.reduce((a, b) => a + b[1], 0) / p.length;
+      let nume = 0;
+      let den = 0;
+      for (const [x, y] of p){
+        nume += (x - mx) * (y - my);
+        den += (x - mx) * (x - mx);
+      }
+      const b = den > 0 ? nume / den : 0;
+      const a = my - b * mx;
+      return {a, b};
+    }
+
+    function drawScatter(svg, rows, xKey, yKey, yMin, yMax){
+      clearSvg(svg);
+      const w = 560;
+      const h = 260;
+      const m = {l:46, r:14, t:16, b:30};
+      const pw = w - m.l - m.r;
+      const ph = h - m.t - m.b;
+      drawAxes(svg, w, h, m);
+
+      const xs = [];
+      const ys = [];
+      for (const r of rows){
+        const x = num(r[xKey]);
+        const y = num(r[yKey]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        xs.push(x);
+        ys.push(y);
+        const px = m.l + clamp01((x - 0) / 100) * pw;
+        const py = m.t + (1 - clamp01((y - yMin) / (yMax - yMin))) * ph;
+        svg.appendChild(svgEl("circle", {cx:px, cy:py, r:1.9, fill:"#1f4d7a", "fill-opacity":"0.30"}));
+      }
+
+      const fit = linearFit(xs, ys);
+      const x0 = 0, x1 = 100;
+      const y0 = fit.a + fit.b * x0;
+      const y1 = fit.a + fit.b * x1;
+      const px0 = m.l;
+      const px1 = m.l + pw;
+      const py0 = m.t + (1 - clamp01((y0 - yMin) / (yMax - yMin))) * ph;
+      const py1 = m.t + (1 - clamp01((y1 - yMin) / (yMax - yMin))) * ph;
+      svg.appendChild(svgEl("line", {x1:px0, y1:py0, x2:px1, y2:py1, stroke:"#d62728", "stroke-width":"2"}));
+
+      for (let t = 0; t <= 5; t += 1){
+        const x = m.l + (t / 5) * pw;
+        const v = (t / 5) * 100;
+        svg.appendChild(svgEl("line", {x1:x, y1:h - m.b, x2:x, y2:h - m.b + 4, stroke:"#7c8da3", "stroke-width":"1"}));
+        const lbl = svgEl("text", {x:x, y:h - m.b + 16, "font-size":"10", "text-anchor":"middle", fill:"#5d6f84"});
+        lbl.textContent = v.toFixed(0);
+        svg.appendChild(lbl);
+      }
+      for (let t = 0; t <= 4; t += 1){
+        const y = m.t + (t / 4) * ph;
+        const v = yMax - (t / 4) * (yMax - yMin);
+        svg.appendChild(svgEl("line", {x1:m.l - 4, y1:y, x2:m.l, y2:y, stroke:"#7c8da3", "stroke-width":"1"}));
+        const lbl = svgEl("text", {x:m.l - 6, y:y + 3, "font-size":"10", "text-anchor":"end", fill:"#5d6f84"});
+        lbl.textContent = v.toFixed(2);
+        svg.appendChild(lbl);
+      }
+    }
+
+    function drawTopBottom(svg, top, bottom){
+      clearSvg(svg);
+      const w = 560;
+      const h = 260;
+      const m = {l:46, r:14, t:20, b:44};
+      const pw = w - m.l - m.r;
+      const ph = h - m.t - m.b;
+      drawAxes(svg, w, h, m);
+
+      const metrics = [
+        {name:"Texture frac", top:mean(top, (r) => num(r.geom_texture_fraction)), bot:mean(bottom, (r) => num(r.geom_texture_fraction))},
+        {name:"Boundary/100", top:mean(top, (r) => num(r.geom_texture_boundary_score) / 100), bot:mean(bottom, (r) => num(r.geom_texture_boundary_score) / 100)},
+        {name:"Inv object", top:1 - mean(top, (r) => num(r.geom_object_fraction)), bot:1 - mean(bottom, (r) => num(r.geom_object_fraction))}
+      ];
+
+      const groupW = pw / metrics.length;
+      const barW = Math.min(34, groupW * 0.28);
+
+      metrics.forEach((mtr, i) => {
+        const gx = m.l + i * groupW + groupW * 0.5;
+        const topH = clamp01(mtr.top) * ph;
+        const botH = clamp01(mtr.bot) * ph;
+
+        svg.appendChild(svgEl("rect", {
+          x: gx - barW - 4, y: h - m.b - topH, width: barW, height: topH,
+          fill: "#1f77b4", opacity: "0.85"
+        }));
+        svg.appendChild(svgEl("rect", {
+          x: gx + 4, y: h - m.b - botH, width: barW, height: botH,
+          fill: "#d62728", opacity: "0.85"
+        }));
+
+        const t1 = svgEl("text", {x: gx - barW/2 - 4, y: h - m.b - topH - 4, "font-size":"10", "text-anchor":"middle", fill:"#365a80"});
+        t1.textContent = mtr.top.toFixed(2);
+        svg.appendChild(t1);
+        const t2 = svgEl("text", {x: gx + barW/2 + 4, y: h - m.b - botH - 4, "font-size":"10", "text-anchor":"middle", fill:"#7a2f2f"});
+        t2.textContent = mtr.bot.toFixed(2);
+        svg.appendChild(t2);
+
+        const lab = svgEl("text", {x: gx, y: h - m.b + 16, "font-size":"10", "text-anchor":"middle", fill:"#4f6278"});
+        lab.textContent = mtr.name;
+        svg.appendChild(lab);
+      });
+
+      const lg1 = svgEl("text", {x:m.l, y:m.t - 6, "font-size":"11", fill:"#365a80"});
+      lg1.textContent = "Blue: top 10%";
+      const lg2 = svgEl("text", {x:m.l + 88, y:m.t - 6, "font-size":"11", fill:"#7a2f2f"});
+      lg2.textContent = "Red: bottom 10%";
+      svg.appendChild(lg1);
+      svg.appendChild(lg2);
+    }
+
+    function rankTile(rank, row){
+      const card = document.createElement("div");
+      card.className = "tile";
+      const img = document.createElement("img");
+      img.src = "../review/" + row.thumb;
+      img.alt = row.image_id;
+      const tx = document.createElement("div");
+      tx.className = "tx";
+      tx.innerHTML =
+        "<b>#" + rank + "</b> " + row.image_id +
+        "<br>Score: " + num(row.final_score, 0).toFixed(2) +
+        " | Tf: " + num(row.geom_texture_fraction, 0).toFixed(2) +
+        " | Of: " + num(row.geom_object_fraction, 0).toFixed(2);
+      card.appendChild(img);
+      card.appendChild(tx);
+      return card;
+    }
+
+    (function main(){
+      const raw = Array.isArray(window.REVIEW_DATA) ? window.REVIEW_DATA : [];
+      const rows = raw
+        .filter((r) => String(r.dataset || "").toLowerCase() === "ade20k")
+        .map((r) => ({...r}))
+        .sort((a, b) => num(b.final_score, -1e9) - num(a.final_score, -1e9));
+
+      const n = rows.length;
+      const topN = Math.max(1, Math.floor(n * 0.10));
+      const top = rows.slice(0, topN);
+      const bottom = rows.slice(n - topN);
+
+      const finalScores = rows.map((r) => num(r.final_score));
+      const texFrac = rows.map((r) => num(r.geom_texture_fraction));
+      const objFrac = rows.map((r) => num(r.geom_object_fraction));
+      const bound = rows.map((r) => num(r.geom_texture_boundary_score));
+
+      const selectedRows = rows.filter((r) => String(r.status || "").toLowerCase() === "selected");
+      const nonSelectedRows = rows.filter((r) => String(r.status || "").toLowerCase() !== "selected");
+      const minSelectedScore = selectedRows.length ? Math.min(...selectedRows.map((r) => num(r.final_score, NaN)).filter(Number.isFinite)) : NaN;
+      const maxNonSelectedScore = nonSelectedRows.length ? Math.max(...nonSelectedRows.map((r) => num(r.final_score, NaN)).filter(Number.isFinite)) : NaN;
+
+      let recommendedCutoff = 60.0;
+      if (
+        Number.isFinite(minSelectedScore) &&
+        Number.isFinite(maxNonSelectedScore) &&
+        !(recommendedCutoff > maxNonSelectedScore && recommendedCutoff <= minSelectedScore)
+      ){
+        recommendedCutoff = Math.round((minSelectedScore + maxNonSelectedScore) / 2.0);
+      }
+      const strictCutoff = Number.isFinite(minSelectedScore) ? Math.floor(minSelectedScore) : recommendedCutoff;
+      const goodAtRecommended = rows.filter((r) => num(r.final_score, 0) >= recommendedCutoff).length;
+      const goodAtStrict = rows.filter((r) => num(r.final_score, 0) >= strictCutoff).length;
+
+      const rhoTex = spearman(finalScores, texFrac);
+      const rhoObj = spearman(finalScores, objFrac);
+      const rhoBnd = spearman(finalScores, bound);
+
+      const kpis = [
+        {name:"Total ADE20K images", val:n.toString(), sub:"full ranked manifest"},
+        {name:"Recommended cutoff (good vs not good)", val:recommendedCutoff.toFixed(1), sub:`good images: ${goodAtRecommended}`},
+        {name:"Strict cutoff (high confidence)", val:strictCutoff.toFixed(1), sub:`good images: ${goodAtStrict}`},
+        {
+          name:"Observed score gap",
+          val:(Number.isFinite(maxNonSelectedScore) && Number.isFinite(minSelectedScore))
+            ? `${maxNonSelectedScore.toFixed(2)} to ${minSelectedScore.toFixed(2)}`
+            : "n/a",
+          sub:"max non-good to min good"
+        },
+        {name:"Top 10% mean score", val:mean(top, (r) => num(r.final_score)).toFixed(2), sub:"vs bottom " + mean(bottom, (r) => num(r.final_score)).toFixed(2)},
+        {name:"Texture fraction lift", val:(mean(top, (r) => num(r.geom_texture_fraction)) / Math.max(1e-9, mean(bottom, (r) => num(r.geom_texture_fraction)))).toFixed(2) + "x", sub:"top10 / bottom10"},
+        {name:"Object fraction drop", val:(mean(bottom, (r) => num(r.geom_object_fraction)) / Math.max(1e-9, mean(top, (r) => num(r.geom_object_fraction)))).toFixed(2) + "x", sub:"bottom10 / top10"},
+        {name:"Spearman rho(score, texture frac)", val:Number.isFinite(rhoTex) ? rhoTex.toFixed(3) : "n/a", sub:"higher is better"},
+        {name:"Spearman rho(score, object frac)", val:Number.isFinite(rhoObj) ? rhoObj.toFixed(3) : "n/a", sub:"more negative is better"},
+        {name:"Spearman rho(score, boundary score)", val:Number.isFinite(rhoBnd) ? rhoBnd.toFixed(3) : "n/a", sub:"higher is better"},
+        {name:"Top10 mean texture fraction", val:mean(top, (r) => num(r.geom_texture_fraction)).toFixed(3), sub:"bottom10: " + mean(bottom, (r) => num(r.geom_texture_fraction)).toFixed(3)}
+      ];
+
+      const kpiRoot = document.getElementById("kpis");
+      for (const k of kpis){
+        const d = document.createElement("div");
+        d.className = "kpi";
+        d.innerHTML = "<div class='name'>" + k.name + "</div><div class='val'>" + k.val + "</div><div class='sub'>" + k.sub + "</div>";
+        kpiRoot.appendChild(d);
+      }
+
+      const cutoffNarr = document.getElementById("cutoffNarrative");
+      if (cutoffNarr){
+        if (Number.isFinite(maxNonSelectedScore) && Number.isFinite(minSelectedScore)){
+          cutoffNarr.textContent =
+            "Current ADE20K ranking shows a clean separation gap between non-good and good samples " +
+            "(" + maxNonSelectedScore.toFixed(2) + " to " + minSelectedScore.toFixed(2) + "). " +
+            "Recommended operational cutoff is " + recommendedCutoff.toFixed(1) +
+            ", with a stricter high-confidence cutoff at " + strictCutoff.toFixed(1) + ".";
+        } else {
+          cutoffNarr.textContent = "Cutoff could not be estimated from the current manifest.";
+        }
+      }
+
+      const deciles = [];
+      for (let i = 0; i < 10; i += 1){
+        const a = Math.floor((i * n) / 10);
+        const b = Math.floor(((i + 1) * n) / 10);
+        const chunk = rows.slice(a, Math.max(a + 1, b));
+        deciles.push({
+          finalScore: mean(chunk, (r) => num(r.final_score)),
+          textureFraction: mean(chunk, (r) => num(r.geom_texture_fraction)),
+          objectFraction: mean(chunk, (r) => num(r.geom_object_fraction)),
+          boundaryScore: mean(chunk, (r) => num(r.geom_texture_boundary_score))
+        });
+      }
+
+      drawDecileChart(document.getElementById("decileChart"), deciles);
+      drawScatter(document.getElementById("scatterTexture"), rows, "final_score", "geom_texture_fraction", 0, 1);
+      drawScatter(document.getElementById("scatterObject"), rows, "final_score", "geom_object_fraction", 0, 1);
+      drawTopBottom(document.getElementById("topBottomChart"), top, bottom);
+
+      const topStrip = document.getElementById("topStrip");
+      const bottomStrip = document.getElementById("bottomStrip");
+      for (let i = 0; i < Math.min(12, rows.length); i += 1){
+        topStrip.appendChild(rankTile(i + 1, rows[i]));
+      }
+      for (let i = 0; i < Math.min(12, rows.length); i += 1){
+        const idx = rows.length - 12 + i;
+        if (idx >= 0) bottomStrip.appendChild(rankTile(idx + 1, rows[idx]));
+      }
+
+      const slider = document.getElementById("rankSlider");
+      const rankPos = document.getElementById("rankPos");
+      const rankTotal = document.getElementById("rankTotal");
+      const rankImage = document.getElementById("rankImage");
+      const rankMeta = document.getElementById("rankMeta");
+      const openOriginal = document.getElementById("openOriginal");
+      const openOverlay = document.getElementById("openOverlay");
+
+      rankTotal.textContent = String(rows.length);
+      slider.min = "1";
+      slider.max = String(rows.length);
+      slider.value = "1";
+
+      function refreshRank(){
+        const rank = Math.max(1, Math.min(rows.length, Number(slider.value) || 1));
+        const row = rows[rank - 1];
+        rankPos.textContent = String(rank);
+        rankImage.src = "../review/" + row.thumb;
+        rankImage.alt = row.image_id;
+        rankMeta.innerHTML =
+          "<p><b>Image ID</b>" + row.image_id + "</p>" +
+          "<p><b>Final score</b>" + num(row.final_score, 0).toFixed(3) + "</p>" +
+          "<p><b>Texture fraction</b>" + num(row.geom_texture_fraction, 0).toFixed(4) + "</p>" +
+          "<p><b>Object fraction</b>" + num(row.geom_object_fraction, 0).toFixed(4) + "</p>" +
+          "<p><b>Boundary score</b>" + num(row.geom_texture_boundary_score, 0).toFixed(3) + "</p>" +
+          "<p><b>Large texture regions</b>" + num(row.geom_num_large_texture_regions, 0).toFixed(0) + "</p>" +
+          "<p><b>Status</b>" + String(row.status || "") + "</p>" +
+          "<p><b>Percentile</b>" + ((1 - (rank - 1) / Math.max(1, rows.length - 1)) * 100).toFixed(1) + "th</p>";
+        openOriginal.href = "../review/" + row.image_path;
+        openOverlay.href = "../review/" + row.overlay_rel;
+      }
+
+      slider.addEventListener("input", refreshRank);
+      refreshRank();
+
+      const tbody = document.getElementById("rankTableBody");
+      rows.slice(0, 50).forEach((r, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + (i + 1) + "</td>" +
+          "<td>" + r.image_id + "</td>" +
+          "<td>" + num(r.final_score, 0).toFixed(3) + "</td>" +
+          "<td>" + num(r.geom_texture_fraction, 0).toFixed(4) + "</td>" +
+          "<td>" + num(r.geom_object_fraction, 0).toFixed(4) + "</td>" +
+          "<td>" + num(r.geom_texture_boundary_score, 0).toFixed(3) + "</td>" +
+          "<td>" + String(r.status || "") + "</td>";
+        tbody.appendChild(tr);
+      });
+    })();
+  </script>
+</body>
+</html>
