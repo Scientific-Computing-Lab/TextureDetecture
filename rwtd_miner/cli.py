@@ -1059,6 +1059,7 @@ def cmd_calibrate_rwtd_reference(args: argparse.Namespace) -> int:
 
 
 def cmd_ade20k_full(args: argparse.Namespace) -> int:
+    import pandas as pd
     config_path = Path(args.config)
     cfg = load_config(config_path)
     out_root = Path(args.out)
@@ -1098,15 +1099,104 @@ def cmd_ade20k_full(args: argparse.Namespace) -> int:
         "strong_boundary_min_pixels": int(cfg.get("review", {}).get("strong_boundary_min_pixels", 40)),
     }
 
-    df, summary = run_ade20k_full_eval(
-        ade_root=ade_root,
-        out_root=out_root,
-        cfg=eval_cfg,
-        selected_min=float(args.selected_min),
-        borderline_min=float(args.borderline_min),
-        workers=workers,
-    )
-    baseline_summary = dict(summary)
+    custom_csv = str(getattr(args, "custom_images_csv", "")).strip()
+    if custom_csv and Path(custom_csv).exists():
+        # --- Custom images mode: Stage A on unique annotations, expand to all variants ---
+        log.info("Custom images mode: %s", custom_csv)
+        import pandas as pd
+        custom_df = pd.read_csv(custom_csv)
+        log.info("  Total images in manifest: %d", len(custom_df))
+
+        # Deduplicate by annotation_ref for Stage A (geometry only depends on mask)
+        ann_col = "annotation_ref"
+        if ann_col in custom_df.columns:
+            unique_anns = custom_df.drop_duplicates(subset=[ann_col]).copy()
+            log.info("  Unique annotations for Stage A: %d", len(unique_anns))
+
+            # Build pairs for run_ade20k_full_eval-compatible format
+            pairs = []
+            for _, row in unique_anns.iterrows():
+                ann_path = str(row[ann_col])
+                # Use annotation stem as image_id for Stage A
+                ann_stem = Path(ann_path).stem
+                # Find any image_path for this annotation (just for Stage A metadata)
+                img_path = str(row.get("image_path", ""))
+                pairs.append({
+                    "image_id": f"training_{ann_stem}" if not ann_stem.startswith("training_") else ann_stem,
+                    "image_path": img_path,
+                    "annotation_ref": ann_path,
+                })
+
+            # Run Stage A on unique annotations
+            from rwtd_miner.utils.ade20k_reference import (
+                build_ade20k_class_map, _analyze_one, apply_texture_priority_scoring,
+            )
+            class_map = build_ade20k_class_map(ade_root)
+            from concurrent.futures import ProcessPoolExecutor, as_completed
+            from tqdm import tqdm
+
+            stageA_rows = []
+            with ProcessPoolExecutor(max_workers=max(1, workers)) as ex:
+                futs = [ex.submit(_analyze_one, row, class_map, eval_cfg) for row in pairs]
+                for f in tqdm(as_completed(futs), total=len(futs), desc="stageA_geometry", unit="img"):
+                    stageA_rows.append(f.result())
+
+            stageA_df = pd.DataFrame(stageA_rows)
+            stageA_df = apply_texture_priority_scoring(
+                stageA_df,
+                selected_min=float(args.selected_min),
+                borderline_min=float(args.borderline_min),
+            )
+
+            # Vectorized merge: join Stage A scores onto all variants via annotation_ref
+            score_cols = [c for c in stageA_df.columns if c not in ("image_id", "image_path")]
+            stageA_lookup = stageA_df[score_cols].copy()
+            stageA_lookup[ann_col] = stageA_df["annotation_ref"].astype(str)
+            stageA_lookup = stageA_lookup.drop_duplicates(subset=[ann_col])
+
+            df = custom_df.copy()
+            df[ann_col] = df[ann_col].astype(str)
+            df = df.merge(stageA_lookup, on=ann_col, how="left")
+
+            # Ensure required columns exist
+            if "dataset" not in df.columns:
+                df["dataset"] = "custom"
+            if "review_score" not in df.columns or df["review_score"].isna().all():
+                df["review_score"] = 0.0
+            df["review_score"] = df["review_score"].fillna(0.0)
+            df = df.sort_values("review_score", ascending=False).reset_index(drop=True)
+
+            log.info("  Expanded DataFrame: %d images with Stage A scores", len(df))
+            log.info("  review_score range: %.1f - %.1f (mean %.1f)",
+                      df["review_score"].min(), df["review_score"].max(), df["review_score"].mean())
+        else:
+            # No annotations — skip Stage A, just load images
+            df = custom_df.copy()
+            df["review_score"] = 50.0  # neutral score
+            df["final_selected"] = True
+            df["final_borderline"] = False
+
+        summary = {
+            "n_total": len(df),
+            "selected_min": float(args.selected_min),
+            "borderline_min": float(args.borderline_min),
+            "selected_count": int(df.get("final_selected", pd.Series(dtype=bool)).fillna(False).sum()),
+            "borderline_count": int(df.get("final_borderline", pd.Series(dtype=bool)).fillna(False).sum()),
+            "rejected_count": int(len(df) - df.get("final_selected", pd.Series(dtype=bool)).fillna(False).sum()
+                                  - df.get("final_borderline", pd.Series(dtype=bool)).fillna(False).sum()),
+            "selected_ratio": 0.0,
+        }
+        baseline_summary = dict(summary)
+    else:
+        df, summary = run_ade20k_full_eval(
+            ade_root=ade_root,
+            out_root=out_root,
+            cfg=eval_cfg,
+            selected_min=float(args.selected_min),
+            borderline_min=float(args.borderline_min),
+            workers=workers,
+        )
+        baseline_summary = dict(summary)
 
     if bool(args.enable_clip):
         from rwtd_miner.stages.stage_b_clip import run_stage_b
@@ -1191,22 +1281,28 @@ def cmd_ade20k_full(args: argparse.Namespace) -> int:
         symlink_or_copy(src, dst)
 
     review_limit = int(args.review_limit)
-    batch_dir = ensure_dir(out_root / "batches" / "batch_00000")
-    if review_limit > 0 and len(df) > review_limit:
-        review_df = _build_balanced_review_subset(df=df, limit=review_limit, seed=int(cfg.get("seed", 42)))
+    # Skip review site for custom CSV mode (too many images) or when review_limit=0
+    custom_csv_active = bool(str(getattr(args, "custom_images_csv", "")).strip()) and Path(str(getattr(args, "custom_images_csv", ""))).exists()
+    if not custom_csv_active:
+        batch_dir = ensure_dir(out_root / "batches" / "batch_00000")
+        if review_limit > 0 and len(df) > review_limit:
+            review_df = _build_balanced_review_subset(df=df, limit=review_limit, seed=int(cfg.get("seed", 42)))
+        else:
+            review_df = df.copy()
+        review_df = render_ade20k_review_assets(
+            df=review_df,
+            batch_dir=batch_dir,
+            class_map=build_ade20k_class_map(ade_root),
+            cfg=eval_cfg,
+            max_items=review_limit if review_limit > 0 else None,
+        )
+        write_table(review_df, batch_dir / "batch_manifest", write_csv=write_csv)
+        review_index = build_review_site(df=review_df, batch_dir=batch_dir)
     else:
-        review_df = df.copy()
-    review_df = render_ade20k_review_assets(
-        df=review_df,
-        batch_dir=batch_dir,
-        class_map=build_ade20k_class_map(ade_root),
-        cfg=eval_cfg,
-        max_items=review_limit if review_limit > 0 else None,
-    )
-    write_table(review_df, batch_dir / "batch_manifest", write_csv=write_csv)
-    review_index = build_review_site(df=review_df, batch_dir=batch_dir)
+        log.info("Skipping review site generation (custom images mode, %d images)", len(df))
+        review_index = None
 
-    if args.sync_html_to:
+    if args.sync_html_to and review_index is not None:
         target = Path(args.sync_html_to)
         ensure_dir(target.parent)
         shutil.copytree(review_index.parent, target, dirs_exist_ok=True)
@@ -1293,6 +1389,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ade.add_argument("--vlm_device", default="auto", choices=["auto", "cpu", "mps", "cuda"])
     p_ade.add_argument("--vlm_top_n", type=int, default=1200)
     p_ade.add_argument("--sync_html_to", default="")
+    p_ade.add_argument("--custom_images_csv", default="",
+                       help="CSV with columns: image_id,image_path,annotation_ref. "
+                            "Stage A runs on unique annotations, then CLIP+VLM run on all images.")
     p_ade.set_defaults(func=cmd_ade20k_full)
 
     return parser

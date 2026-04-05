@@ -98,6 +98,8 @@ class ClipEmbedder:
 
         inputs = self._hf_processor(text=texts, return_tensors="pt", padding=True).to(self.device)
         emb = self._hf_model.get_text_features(**inputs)
+        if not isinstance(emb, torch.Tensor):
+            emb = emb.pooler_output
         emb = emb / emb.norm(dim=-1, keepdim=True)
         return emb.detach().cpu().numpy().astype(np.float32)
 
@@ -135,6 +137,8 @@ class ClipEmbedder:
 
         inputs = self._hf_processor(images=images, return_tensors="pt", padding=True).to(self.device)
         emb = self._hf_model.get_image_features(**inputs)
+        if not isinstance(emb, torch.Tensor):
+            emb = emb.pooler_output
         emb = emb / emb.norm(dim=-1, keepdim=True)
         return EmbedBatchResult(embeddings=emb.detach().cpu().numpy().astype(np.float32), valid_local_indices=valid_local)
 
