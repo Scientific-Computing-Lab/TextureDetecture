@@ -1,12 +1,14 @@
-# Detecture
+# DetectureMiner
+
+> *Part of the [Detecture](../) umbrella — this is the **data-pipeline** component that mines texture-rich scenes and produces the training/test datasets consumed by the [model](../Qwen2SAM_Detecture/) and scored by the [benchmark](../Qwen2SAM_Detecture_Benchmark/).*
 
 <table>
   <tr>
     <td align="center">
-      <strong>Browse the live Detecture website</strong><br/>
+      <strong>Browse the live DetectureMiner website</strong><br/>
       Open the published ADE20K site or jump straight to the review gallery.<br/><br/>
       <a href="https://scientific-computing-user.github.io/ade20k-texture-miner-site/">
-        <img alt="Browse Detecture Website" src="https://img.shields.io/badge/Browse-Detecture%20Website-0f3c75?style=for-the-badge" />
+        <img alt="Browse DetectureMiner Website" src="https://img.shields.io/badge/Browse-DetectureMiner%20Website-0f3c75?style=for-the-badge" />
       </a>
       <a href="https://scientific-computing-user.github.io/rwtd-texture-miner-site/texturesam2_ai_gallery/index.html">
         <img alt="Open Review Gallery" src="https://img.shields.io/badge/Open-Review%20Gallery-1f8d57?style=for-the-badge" />
@@ -15,7 +17,7 @@
   </tr>
 </table>
 
-Detecture is a standalone texture-structure scoring project that asks a narrow question:
+DetectureMiner is a standalone texture-structure scoring pipeline that asks a narrow question:
 
 "How texturized is this image for real-world texture segmentation?"
 
