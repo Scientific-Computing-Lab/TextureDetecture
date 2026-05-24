@@ -1,130 +1,233 @@
-# DetectureMiner
+# Detecture
 
-> *Part of the [Detecture](../) umbrella — this is the **data-pipeline** component that mines texture-rich scenes and produces the training/test datasets consumed by the [model](../Qwen2SAM_Detecture/) and scored by the [benchmark](../Qwen2SAM_Detecture_Benchmark/).*
+> **Sub-Semantic Language Grounding Bridges Texture Perception and Segmentation.**
+> End-to-end VLM-guided multi-texture segmentation that couples
+> Qwen3-VL-8B with SAM3 through a learned Bridge and a Shifted-Zero
+> LM-loss cliff, trained in ~8.2 M parameters on frozen backbones.
 
-<table>
-  <tr>
-    <td align="center">
-      <strong>Browse the live DetectureMiner website</strong><br/>
-      Open the published ADE20K site or jump straight to the review gallery.<br/><br/>
-      <a href="https://scientific-computing-user.github.io/ade20k-texture-miner-site/">
-        <img alt="Browse DetectureMiner Website" src="https://img.shields.io/badge/Browse-DetectureMiner%20Website-0f3c75?style=for-the-badge" />
-      </a>
-      <a href="https://scientific-computing-user.github.io/rwtd-texture-miner-site/texturesam2_ai_gallery/index.html">
-        <img alt="Open Review Gallery" src="https://img.shields.io/badge/Open-Review%20Gallery-1f8d57?style=for-the-badge" />
-      </a>
-    </td>
-  </tr>
-</table>
+This is the public monorepo for the Detecture paper (NeurIPS 2026).
+It bundles three components that together reproduce every number in
+the paper's main comparison table:
 
-DetectureMiner is a standalone texture-structure scoring pipeline that asks a narrow question:
+| Component | Role |
+| --- | --- |
+| [`Qwen2SAM_Detecture/`](Qwen2SAM_Detecture/) | **Model.** Architecture, training, evaluation scripts, ablation logs. |
+| [`Qwen2SAM_Detecture_Benchmark/`](Qwen2SAM_Detecture_Benchmark/) | **Benchmark.** 4-method × 4-dataset evaluation suite with unified fairness protocol. |
+| [`DetectureMiner/`](DetectureMiner/) | **Data pipeline.** Filters ADE20K/TextureSAM-Textured-ADE20K and produces the ~14k-sample multi-texture training set. |
 
-"How texturized is this image for real-world texture segmentation?"
+Each sub-dir has its own README with deeper details; this file covers
+**setup + dataset download + end-to-end reproduction** of the paper
+numbers.
 
-It answers that question with a `0-100` score driven primarily by:
+---
 
-- region fragmentation and balance
-- texture occupancy
-- boundary coherence
-- penalties for object-heavy or ambiguous scenes
-- optional CLIP and VLM correction layers
-
-This private repository was extracted on `2026-03-10` from a broader mixed workspace so the Detecture scoring project can live as its own code-and-data artifact.
-
-## What This Repository Contains
-
-- Detecture source code under `rwtd_miner/`
-- run scripts and configuration under `scripts/`, `configs/`, and `config.yaml`
-- a large static review bundle under `docs/review/` with manifests, thumbnails, originals, masks, and overlays
-- a private raw ADE20K benchmark copy under `data/raw/ade20k/ADEChallengeData2016/`
-- a preserved ADE20K-only website export under `site_exports/ade20k_texture_miner_site/`
-- progress diagnostics and audit files under `progress/`
-- legacy operational notes copied from the source repo so historical execution context is not lost
-
-Important: the internal Python package name remains `rwtd_miner` for stability. The branding is `Detecture`, but the implementation was extracted without a risky package-wide rename.
-
-## Quick Start
+## Install
 
 ```bash
-cd /path/to/Detecture
-python3 -m venv .venv
-source .venv/bin/activate
+# 1. Clone
+git clone https://github.com/aviadcohz/Detecture.git
+cd Detecture
+
+# 2. Python env
+conda create -n detecture python=3.10 -y
+conda activate detecture
 pip install -r requirements.txt
+
+# 3. SAM3 — clone separately (not pip-installable) and point to it
+git clone https://github.com/facebookresearch/sam3.git ~/sam3
+pip install -e ~/sam3
+export SAM3_ROOT=~/sam3                 # optional; default is ~/sam3
+
+# 4. (for SA2VA only) install a flash_attn stub so the model loads.
+#    The stub has zero real kernels; SA2VA runs with use_flash_attn=False.
+#    Details + minimal stub contents in Qwen2SAM_Detecture_Benchmark/README.md.
+
+# 5. Download the trained checkpoint and the four evaluation datasets
+#    from Hugging Face (see "Model weights & datasets" below for details).
+huggingface-cli download anon-detecture-neurips-2026/Detecture-NeurIPS \
+    --local-dir Qwen2SAM_Detecture/checkpoints
+mkdir -p ~/datasets
+for DS in RWTD STLD ADE20k_Detecture CAID; do
+  huggingface-cli download anon-detecture-neurips-2026/$DS \
+      --repo-type dataset --local-dir ~/datasets/$DS
+done
 ```
 
-Run the ADE20K Detecture pipeline using the included raw benchmark copy:
+After step 5 you have everything needed to reproduce the paper's main
+comparison table — jump straight to
+[Quick-start](#quick-start-reproduce-the-papers-main-comparison-table).
+
+---
+
+## Model weights & datasets
+
+All artifacts are hosted on Hugging Face under the
+[`anon-detecture-neurips-2026`](https://huggingface.co/anon-detecture-neurips-2026)
+organization (code MIT, weights/data CC-BY-4.0):
+
+| Type | Repo | Size |
+| --- | --- | ---: |
+| Model checkpoint (`best.pt`) | [`anon-detecture-neurips-2026/Detecture-NeurIPS`](https://huggingface.co/anon-detecture-neurips-2026/Detecture-NeurIPS) | 7.5 GB |
+| RWTD dataset (253 imgs) | [`anon-detecture-neurips-2026/RWTD`](https://huggingface.co/datasets/anon-detecture-neurips-2026/RWTD) | ~150 MB |
+| STLD dataset (200 imgs) | [`anon-detecture-neurips-2026/STLD`](https://huggingface.co/datasets/anon-detecture-neurips-2026/STLD) | ~120 MB |
+| ADE20k_Detecture (212 imgs) | [`anon-detecture-neurips-2026/ADE20k_Detecture`](https://huggingface.co/datasets/anon-detecture-neurips-2026/ADE20k_Detecture) | ~80 MB |
+| CAID dataset (3091 imgs) | [`anon-detecture-neurips-2026/CAID`](https://huggingface.co/datasets/anon-detecture-neurips-2026/CAID) | ~4 GB |
+
+### Download with `huggingface-cli`
+
+The `huggingface_hub` package is already in [`requirements.txt`](requirements.txt),
+so the CLI is on your `PATH` after `pip install -r requirements.txt`.
 
 ```bash
-bash scripts/run_detecture_ade20k.sh \
-  --out /path/to/detecture_ade20k_eval \
-  --ade_root /path/to/Detecture/data/raw/ade20k/ADEChallengeData2016 \
-  --skip_download
+# 1. Model checkpoint  →  Qwen2SAM_Detecture/checkpoints/best.pt
+huggingface-cli download anon-detecture-neurips-2026/Detecture-NeurIPS \
+    --local-dir Qwen2SAM_Detecture/checkpoints
+
+# 2. Verify checkpoint integrity
+md5sum Qwen2SAM_Detecture/checkpoints/best.pt
+# expected: 1f69377996e487fdc6b70120a42d2b4f
+
+# 3. Evaluation datasets  →  ~/datasets/<NAME>/
+#    (or export DETECTURE_DATASETS_ROOT and use that path instead)
+mkdir -p ~/datasets
+for DS in RWTD STLD ADE20k_Detecture CAID; do
+  huggingface-cli download anon-detecture-neurips-2026/$DS \
+      --repo-type dataset --local-dir ~/datasets/$DS
+done
 ```
 
-Generic CLI entrypoint:
+If any repo prompts for authentication, run `huggingface-cli login`
+once with a token from <https://huggingface.co/settings/tokens>.
+
+### Alternative: clone with `git` + `git-lfs`
+
+If you prefer `git`, install [git-lfs](https://git-lfs.com) first, then:
 
 ```bash
-bash scripts/detecture_cli.sh ade20k_full \
-  --out /path/to/detecture_ade20k_eval \
-  --ade_root /path/to/Detecture/data/raw/ade20k/ADEChallengeData2016 \
-  --skip_download
+git lfs install
+git clone https://huggingface.co/anon-detecture-neurips-2026/Detecture-NeurIPS \
+    Qwen2SAM_Detecture/checkpoints
+for DS in RWTD STLD ADE20k_Detecture CAID; do
+  git clone https://huggingface.co/datasets/anon-detecture-neurips-2026/$DS \
+      ~/datasets/$DS
+done
 ```
 
-Open the bundled review website locally:
+### Expected dataset layout under `~/datasets/`
+
+After the downloads above, the tree should look like this:
+
+```
+~/datasets/
+├── RWTD/
+│   ├── metadata.json
+│   ├── images/
+│   └── textures_mask/
+├── STLD/
+│   ├── metadata.json
+│   ├── images/
+│   └── masks/
+├── ADE20k_Detecture/
+│   ├── metadata.json
+│   ├── images/
+│   └── masks/
+└── CAID/
+    ├── metadata.json
+    ├── images/
+    └── masks/
+```
+
+Override the root if your datasets live elsewhere:
 
 ```bash
-xdg-open docs/review/index.html
+export DETECTURE_DATASETS_ROOT=/mnt/fast_storage/datasets
 ```
 
-## Included Documentation
+All Python / YAML in this repo resolves dataset paths through this
+variable (falling back to `~/datasets`). No absolute `/home/...` paths
+anywhere.
 
-- `SCIENTIFIC_README.md`: problem statement, score definition, pipeline design, evaluation logic, and limitations
-- `DATA_README.md`: included data inventory, provenance, benchmark terms, and reproduction notes
-- `REQUEST_AND_DESIGN.md`: what was requested, how Detecture was separated into its own repo, and the extraction decisions
-- `RANKING_EXPLANATION.txt`: concise formula-level explanation of the ranking stack
+---
 
-## Repository Layout
+## Quick-start: reproduce the paper's main comparison table
 
-- `rwtd_miner/`: implementation, adapters, scoring stages, utilities
-- `scripts/`: operational scripts and Detecture-branded wrappers
-- `configs/`: reusable profiles and dataset registry files
-- `docs/review/`: repo-resident review bundle for local inspection
-- `data/raw/ade20k/ADEChallengeData2016/`: private benchmark copy used for Detecture evaluation
-- `site_exports/ade20k_texture_miner_site/`: preserved export of the ADE20K-only project website
-- `progress/`: progress board, audits, diagnostics, and prior review summaries
+Once `best.pt` is in place and the four datasets are under
+`$DETECTURE_DATASETS_ROOT`:
 
-## Detecture Scope
+```bash
+cd Qwen2SAM_Detecture_Benchmark
+python master_runner.py
+```
 
-This repository is intentionally narrower than the earlier mixed workspace.
+This dispatches every (method × dataset) cell of the paper's main
+benchmark — 4 methods (Detecture, SAM3, Grounding_SAM3, SA2VA) × 4
+datasets (RWTD, STLD, ADE20K_Detecture, CAID) = 16 cells — as fresh
+subprocesses (clean GPU state per model), writes per-cell JSONs under
+`results/<model>/<dataset>/zero_shot_results.json`, and prints the
+final mIoU / ARI table.
 
-Detecture includes:
+Expected wall time: ~1.5–3 h on a single 40-GB GPU (Detecture's three
+cells dominate; SA2VA's ADE20K cell is the longest single step).
 
-- the `1-100` texture suitability scoring system
-- ADE20K-based evaluation and review artifacts
-- the exported website snapshot that presented this project
-- the code paths that generate those outputs
+Paper table generation:
 
-Detecture does not include:
+```bash
+python aggregate_results.py --csv results/summary.csv \
+                            --latex results/summary.tex
+```
 
-- `.venv` or machine-local dependency installs
-- the external `/home/galoren/rwtd_runs` cache tree from the broader multi-dataset workspace
-- unrelated existing work under `/home/galoren/Detecture/`
+**Expected mIoU summary** (ours in bold):
 
-That boundary keeps this repository focused on the scoring project itself and makes a private GitHub repo feasible.
+| Method | RWTD | STLD | ADE20K (multi) | CAID |
+| --- | ---: | ---: | ---: | ---: |
+| SAM3           | 0.6337 | 0.5042 | 0.3194 | **0.9006** |
+| Grounding_SAM3 | 0.4640 | 0.4489 | 0.4518 | 0.6217 |
+| SA2VA          | 0.3561 | 0.3739 | 0.7141 | 0.7986 |
+| TextureSAM     | 0.4684 | 0.4677 | 0.4798 | 0.6691 |
+| **Detecture**  | **0.8162** | **0.7441** | **0.7419** | 0.7450 |
 
-## Provenance
+Full mIoU + ARI numbers + narrative caption in
+[Qwen2SAM_Detecture_Benchmark/README.md](Qwen2SAM_Detecture_Benchmark/README.md#paper-results--what-to-expect).
 
-- extraction source snapshot commit only: `2da18efafe8542a5b88f9d3a15b77a9daa9f1435`
-- included ADE20K-only site export snapshot commit: `6d73c2a67ed41a3d455cddcea0ae4ef3a80d975e`
+---
 
-## Data Notes
+## Fairness protocol at a glance
 
-This repository contains third-party benchmark data and generated review assets. Keep it private unless you have separately verified the redistribution terms for every included asset.
+| Dataset | Regime | What every method gets |
+| --- | --- | --- |
+| RWTD, STLD (K=2) | **Oracle K=2** | Detecture + SA2VA get an "exactly 2" prompt; SAM3 + Grounding_SAM3 get the mathematical `[m1, −m1]` inverse-mask trick |
+| ADE20K_Detecture (K=1..6) | **Autonomous** | No method is told $K_\text{GT}$; everyone runs their natural multi-mask pathway |
+| CAID (K=1) | Trivial | Single water-surface class, everyone runs their single-prompt path |
 
-ADE20K official sources referenced by the pipeline:
+Every cell is scored through the same `metrics_utils.py` — Softmax +
+static dustbin + Hungarian + ARI — so mIoU / ARI are directly
+comparable across methods and datasets. Full protocol with per-method
+script dispatch lives in
+[`master_runner.py`](Qwen2SAM_Detecture_Benchmark/master_runner.py)'s
+`DISPATCH` table; it fails loudly if any (method, regime) pair
+regresses to a K-peeking default.
 
-- `https://sceneparsing.csail.mit.edu/`
-- `https://data.csail.mit.edu/places/ADEchallenge/ADEChallengeData2016.zip`
-- `https://github.com/CSAILVision/ADE20K`
+---
 
-Use `DATA_README.md` before copying or republishing any raw images.
+## Citation
+
+If you use Detecture, please cite:
+
+```bibtex
+@misc{cohenzada2026detecture,
+  title         = {Sub-Semantic Image Segmentation},
+  author        = {Cohen Zada, Aviad and Orenstein, Nadav and Avidan, Shai and Oren, Gal},
+  year          = {2026},
+  eprint        = {XXXX.XXXXX},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV}
+}
+```
+
+Replace `XXXX.XXXXX` with the arXiv ID once assigned.
+
+## License
+
+Released under the **MIT License** — see [LICENSE](LICENSE) for the full
+text. You are free to use, modify, and redistribute this code for
+research or commercial purposes, subject to attribution.
